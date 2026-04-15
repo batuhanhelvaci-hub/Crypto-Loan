@@ -71,7 +71,7 @@ def read_term(xl):
         except: pass
     return term_data
 
-xl = pd.ExcelFile('Daily_Earn-Borrow_Rates.xlsx')
+xl = pd.ExcelFile('Daily Earn-Borrow Rates.xlsx')
 margin = read_margin(xl)
 loan = read_loan(xl)
 term = read_term(xl)
