@@ -76,13 +76,13 @@ margin = read_margin(xl)
 loan = read_loan(xl)
 term = read_term(xl)
 
-with open('crypto_loan_analysis.html', 'r', encoding='utf-8') as f:
+with open('crypto_loan_analysis (2).html', 'r', encoding='utf-8') as f:
     html = f.read()
 
 html = re.sub(r'const DATA = {.*?};', f'const DATA = {json.dumps({"margin":margin,"loan":loan})};', html, flags=re.DOTALL)
 html = re.sub(r'const TERM_ALL = {.*?};', f'const TERM_ALL = {json.dumps(term)};', html, flags=re.DOTALL)
 
-with open('crypto_loan_analysis.html', 'w', encoding='utf-8') as f:
+with open('crypto_loan_analysis (2).html', 'w', encoding='utf-8') as f:
     f.write(html)
 
 print('Dashboard güncellendi.')
