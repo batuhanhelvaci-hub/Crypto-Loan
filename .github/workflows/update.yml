@@ -29,6 +29,6 @@ jobs:
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-          git add crypto_loan_analysis.html
+          git add "crypto_loan_analysis (2).html"
           git commit -m "Dashboard güncellendi" || exit 0
           git push
