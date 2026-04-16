@@ -85,7 +85,7 @@
     <button class="tab active" onclick="showTab('trend')">Margin Borrow</button>
     <button class="tab" onclick="showTab('loan')">Crypto Loan</button>
     <button class="tab" onclick="showTab('spread')">Spread</button>
-    <button class="tab" onclick="showTab('pricing')">Fiyatlama</button>
+    <button class="tab" onclick="showTab('pricing')">Analiz</button>
   </div>
 
   <div id="sec-trend" class="section active">
@@ -157,16 +157,59 @@
 
   <div id="sec-pricing" class="section">
     <div class="ctrl-row">
-      <span class="ctrl-label">Konumlandırma:</span>
-      <select id="pricing-pos" onchange="renderPricing()">
-        <option value="aggressive">Agresif (piyasa altı)</option>
-        <option value="mid" selected>Orta segment</option>
-        <option value="premium">Premium</option>
+      <span class="ctrl-label">Analiz:</span>
+      <select id="analysis-select" onchange="renderAnalysis()">
+        <option value="margin">Margin Borrow</option>
+        <option value="loan">Crypto Loan</option>
+        <option value="spread">Spread</option>
       </select>
     </div>
-    <div class="metrics" id="pricing-metrics"></div>
-    <div style="margin-top:16px" class="table-wrap" id="pricing-table"></div>
-    <div class="info-box"><p id="pricing-recommendation"></p></div>
+    <!-- Margin analizi -->
+    <div id="analysis-margin" class="analysis-panel">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="legend" id="am-legend"></div>
+          <div class="chart-wrap">
+            <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Tarihsel Ortalama Borrow Rate (%)</div>
+            <div style="height:260px;position:relative"><canvas id="amChart"></canvas></div>
+          </div>
+        </div>
+        <div>
+          <div class="legend"><span class="legend-item"><span class="legend-dot" style="background:#F7931A"></span>BTC Price ($)</span></div>
+          <div class="chart-wrap">
+            <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">BTC Fiyatı (USD)</div>
+            <div style="height:260px;position:relative"><canvas id="amBtcChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Crypto Loan analizi -->
+    <div id="analysis-loan" class="analysis-panel" style="display:none">
+      <div class="ctrl-row">
+        <span class="ctrl-label">Vade:</span>
+        <select id="al-tenor" onchange="renderAnalysisLoan()">
+          <option value="t7">7 Gün</option>
+          <option value="t14">14 Gün</option>
+          <option value="t30">30 Gün</option>
+          <option value="t60">60 Gün</option>
+          <option value="t90">90 Gün</option>
+          <option value="t180">180 Gün</option>
+        </select>
+      </div>
+      <div class="legend" id="al-legend"></div>
+      <div class="chart-wrap">
+        <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Piyasa Min / Medyan / Max — Vadeye Göre</div>
+        <div style="height:300px;position:relative"><canvas id="alChart"></canvas></div>
+      </div>
+    </div>
+    <!-- Spread analizi -->
+    <div id="analysis-spread" class="analysis-panel" style="display:none">
+      <div class="legend" id="as-legend"></div>
+      <div class="chart-wrap">
+        <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Spread vs BTC Fiyatı — Çift Eksen</div>
+        <div style="height:300px;position:relative"><canvas id="asChart"></canvas></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -401,39 +444,151 @@ function renderSpread() {
   });
 }
 
-function renderPricing() {
-  const pos=document.getElementById('pricing-pos').value;
-  const latestKey=Object.keys(TERM_ALL).slice(-1)[0];
-  const latest=TERM_ALL[latestKey];
-  const exchs=Object.keys(latest);
-  const tenorKeys=['flexible','t7','t14','t30','t60','t90','t180'];
-  const tenorLabels=['Flexible','7 Gün','14 Gün','30 Gün','60 Gün','90 Gün','180 Gün'];
-  const byTenor={};
-  tenorKeys.forEach(tk=>{
-    const vals=exchs.map(e=>latest[e][tk]).filter(v=>v!=null&&v>0).sort((a,b)=>a-b);
-    byTenor[tk]={min:vals[0],max:vals[vals.length-1],med:vals[Math.floor(vals.length/2)]};
-  });
-  const myRate={};
-  tenorKeys.forEach(tk=>{
-    const {min,max,med}=byTenor[tk];
-    if(pos==='aggressive') myRate[tk]=+(min+(med-min)*0.3).toFixed(2);
-    else if(pos==='mid')   myRate[tk]=+(med).toFixed(2);
-    else                   myRate[tk]=+(med+(max-med)*0.5).toFixed(2);
-  });
-  document.getElementById('pricing-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Piyasa min (Flex)</div><div class="metric-value">${byTenor.flexible.min.toFixed(2)}%</div><div class="metric-sub">Bitget</div></div>
-    <div class="metric"><div class="metric-label">Piyasa medyan (Flex)</div><div class="metric-value">${byTenor.flexible.med.toFixed(2)}%</div><div class="metric-sub">Orta segment</div></div>
-    <div class="metric"><div class="metric-label">Piyasa max (Flex)</div><div class="metric-value">${byTenor.flexible.max.toFixed(2)}%</div><div class="metric-sub">XT</div></div>
-    <div class="metric"><div class="metric-label">Önerilen başlangıç</div><div class="metric-value" style="color:var(--info-text)">${myRate.flexible.toFixed(2)}%</div><div class="metric-sub">Flexible rate</div></div>`;
-  const tbody=tenorKeys.map((tk,i)=>{
-    const {min,max,med}=byTenor[tk]; const my=myRate[tk];
-    const badge=my<=min+0.2?'<span class="badge badge-low">Alt segment</span>':my>=max-0.3?'<span class="badge badge-high">Üst segment</span>':'<span class="badge badge-mid">Orta segment</span>';
-    return `<tr><td>${tenorLabels[i]}</td><td class="num">${min.toFixed(2)}%</td><td class="num">${med.toFixed(2)}%</td><td class="num">${max.toFixed(2)}%</td><td class="num" style="font-weight:600;color:var(--info-text)">${my.toFixed(2)}%</td><td>${badge}</td></tr>`;
-  }).join('');
-  document.getElementById('pricing-table').innerHTML=`<table><thead><tr><th>Vade</th><th>Piyasa Min</th><th>Piyasa Medyan</th><th>Piyasa Max</th><th>Önerilen Oran</th><th>Konum</th></tr></thead><tbody>${tbody}</tbody></table>`;
-  const posLabel={aggressive:'agresif (piyasa altı)',mid:'orta segment',premium:'premium'};
-  document.getElementById('pricing-recommendation').innerHTML=`<strong>${latestKey} verisine göre:</strong> ${posLabel[pos]} konumlandırma için önerilen Flexible Rate <strong>%${myRate.flexible.toFixed(2)} APR</strong>. Piyasa medyanı %${byTenor.flexible.med.toFixed(2)}, en düşük rakip (Bitget) %${byTenor.flexible.min.toFixed(2)}.`;
+function renderAnalysis() {
+  const val = document.getElementById('analysis-select').value;
+  document.querySelectorAll('.analysis-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('analysis-' + val).style.display = 'block';
+  if (val === 'margin')  renderAnalysisMargin();
+  if (val === 'loan')    renderAnalysisLoan();
+  if (val === 'spread')  renderAnalysisSpread();
 }
+
+function renderAnalysisMargin() {
+  const d    = DATA.margin;
+  const btcd = DATA.btc;
+  const labels = d.map(r => r.date.slice(5));
+  const keys   = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
+  const names  = ['Binance','OKX','Bybit','KuCoin','Gate.IO'];
+
+  document.getElementById('am-legend').innerHTML = keys.map((k,i) =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]}"></span>${names[i]}</span>`
+  ).join('');
+
+  const datasets = keys.map((k,i) => ({
+    label: names[i], data: d.map(r => r[k]),
+    borderColor: COLORS[k], borderWidth: 1.8, pointRadius: 0, tension: 0.3, fill: false, spanGaps: true
+  }));
+  if (charts.amChart) charts.amChart.destroy();
+  charts.amChart = new Chart(document.getElementById('amChart'), {
+    type: 'line', data: { labels, datasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2)+'%':'—'}`}}},
+      scales:{ x:{ticks:{maxTicksLimit:12,maxRotation:45,font:{size:10},color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}},
+               y:{ticks:{callback:v=>v.toFixed(1)+'%',font:{size:11},color:'#8b949e'},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}}}}
+  });
+
+  const btcLabels = btcd.map(r => r.date.slice(5));
+  const btcVals   = btcd.map(r => r.btc);
+  if (charts.amBtcChart) charts.amBtcChart.destroy();
+  charts.amBtcChart = new Chart(document.getElementById('amBtcChart'), {
+    type: 'line', data: { labels: btcLabels, datasets: [{ label:'BTC ($)', data: btcVals, borderColor:'#F7931A', borderWidth:2, pointRadius:0, tension:0.3, fill:false, spanGaps:true }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=>c.parsed.y!=null?'BTC: $'+(c.parsed.y/1000).toFixed(1)+'K':'—'}}},
+      scales:{ x:{ticks:{maxTicksLimit:12,maxRotation:45,font:{size:10},color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}},
+               y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K',font:{size:11},color:'#8b949e'},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}}}}
+  });
+}
+
+function renderAnalysisLoan() {
+  const tk   = document.getElementById('al-tenor').value;
+  const d    = TENOR_DATA[tk];
+  if (!d || !d.length) return;
+  const dates    = d.map(r => r.date);
+  const exchKeys = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*','KuCoin**'];
+
+  // Her tarih için min/med/max hesapla
+  const minVals = [], medVals = [], maxVals = [];
+  const minLabels = [], maxLabels = [];
+  d.forEach(row => {
+    const vals = exchKeys.map(k => ({ k, v: row[k] })).filter(x => x.v != null).sort((a,b) => a.v - b.v);
+    if (!vals.length) { minVals.push(null); medVals.push(null); maxVals.push(null); return; }
+    minVals.push(vals[0].v);
+    medVals.push(vals[Math.floor(vals.length/2)].v);
+    maxVals.push(vals[vals.length-1].v);
+    minLabels.push(vals[0].k);
+    maxLabels.push(vals[vals.length-1].k);
+  });
+
+  document.getElementById('al-legend').innerHTML =
+    '<span class="legend-item"><span class="legend-dot" style="background:#56d364"></span>Min</span>' +
+    '<span class="legend-item"><span class="legend-dot" style="background:rgba(255,255,255,0.5)"></span>Medyan</span>' +
+    '<span class="legend-item"><span class="legend-dot" style="background:#e3b341"></span>Max</span>';
+
+  if (charts.alChart) charts.alChart.destroy();
+  charts.alChart = new Chart(document.getElementById('alChart'), {
+    type: 'line',
+    data: { labels: dates, datasets: [
+      { label:'Min', data:minVals, borderColor:'#56d364', borderWidth:1.8, pointRadius:4, pointHoverRadius:7, tension:0.3, fill:false, spanGaps:true,
+        pointBackgroundColor:'#56d364',
+        tooltip: { callbacks: { afterLabel: (c) => minLabels[c.dataIndex] ? `Borsa: ${minLabels[c.dataIndex]}` : '' }}},
+      { label:'Medyan', data:medVals, borderColor:'rgba(255,255,255,0.5)', borderWidth:1.5, borderDash:[4,3], pointRadius:3, tension:0.3, fill:false, spanGaps:true },
+      { label:'Max', data:maxVals, borderColor:'#e3b341', borderWidth:1.8, pointRadius:4, pointHoverRadius:7, tension:0.3, fill:false, spanGaps:true,
+        pointBackgroundColor:'#e3b341',
+        tooltip: { callbacks: { afterLabel: (c) => maxLabels[c.dataIndex] ? `Borsa: ${maxLabels[c.dataIndex]}` : '' }}}
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{ mode:'index', intersect:false,
+          callbacks:{
+            label: c => `${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2)+'%':'—'}`,
+            afterLabel: (c) => {
+              if (c.datasetIndex === 0 && minLabels[c.dataIndex]) return `  → ${minLabels[c.dataIndex]}`;
+              if (c.datasetIndex === 2 && maxLabels[c.dataIndex]) return `  → ${maxLabels[c.dataIndex]}`;
+              return '';
+            }
+          }
+        }
+      },
+      scales:{ x:{ticks:{maxTicksLimit:12,maxRotation:45,font:{size:10},color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}},
+               y:{ticks:{callback:v=>v.toFixed(1)+'%',font:{size:11},color:'#8b949e'},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'}}}}
+  });
+}
+
+function renderAnalysisSpread() {
+  const dates    = Object.keys(TERM_ALL);
+  const exchKeys = ['ByBit','OKX','Gate I.O','Bitget','Binance*'];
+
+  // BTC verisi — margin sheetindeki tarihlerle eşleştir
+  const btcMap = {};
+  DATA.btc.forEach(r => { btcMap[r.date] = r.btc; });
+
+  // Tarihli sheetlerden bir BTC değeri bul (yakın tarihi ara)
+  const spreadBtc = dates.map(d => {
+    // dd.mm.yyyy → yyyy-mm-dd dönüşümü
+    const parts = d.replace(/\./g, '-').split('-');
+    const iso = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}` : null;
+    return iso ? (btcMap[iso] || null) : null;
+  });
+
+  document.getElementById('as-legend').innerHTML =
+    exchKeys.map(k => `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k} spread</span>`).join('') +
+    '<span class="legend-item"><span class="legend-dot" style="background:#F7931A"></span>BTC (sağ eksen)</span>';
+
+  const spreadDatasets = exchKeys.map(k => ({
+    label: k + ' spread',
+    data: dates.map(d => TERM_ALL[d][k]?.spread ?? null),
+    borderColor: COLORS[k] || '#aaa', borderWidth:1.8, pointRadius:3, tension:0.3, fill:false, spanGaps:true, yAxisID:'y'
+  }));
+  spreadDatasets.push({
+    label: 'BTC ($)',
+    data: spreadBtc,
+    borderColor: '#F7931A', borderWidth:2, pointRadius:0, tension:0.3, fill:false, spanGaps:true, yAxisID:'y2'
+  });
+
+  if (charts.asChart) charts.asChart.destroy();
+  charts.asChart = new Chart(document.getElementById('asChart'), {
+    type: 'line', data: { labels: dates, datasets: spreadDatasets },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,callbacks:{label:c=> c.yAxisID==='y2' ? `BTC: $${(c.parsed.y/1000).toFixed(1)}K` : `${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2)+'%':'—'}`}}},
+      scales:{
+        x:{ticks:{maxTicksLimit:12,maxRotation:45,font:{size:10},color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}},
+        y:{ticks:{callback:v=>v.toFixed(1)+'%',font:{size:11},color:'#8b949e'},grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.08)'},position:'left'},
+        y2:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'K',font:{size:10},color:'#F7931A'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'},position:'right'}
+      }}
+  });
+}
+
+function renderPricing() { renderAnalysis(); }
 
 renderMargin();
 </script>
