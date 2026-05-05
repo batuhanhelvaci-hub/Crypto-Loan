@@ -159,6 +159,49 @@
       <div style="height:280px;position:relative"><canvas id="tenorChart"></canvas></div>
     </div>
     <p class="note">* Crypto Loan Flexible Rate: BTC teminatıyla O/N kredi alındığında ödenen faiz oranı (APR %)</p>
+
+    <!-- Benim Oranım Paneli -->
+    <div id="my-rate-panel" style="margin-top:24px;background:var(--surface2);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:18px 20px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">🏦</span> BtcTurk Global — Faiz Oranı Karşılaştırması
+        <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:4px;">(05.05.2026 itibarıyla, sayfa yenilenince sıfırlanır)</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--text-muted);">Vade</label>
+          <select id="my-tenor-select" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:13px;cursor:pointer;">
+            <option value="t7">7 Gün</option>
+            <option value="t14">14 Gün</option>
+            <option value="t30">30 Gün</option>
+            <option value="t60">60 Gün</option>
+            <option value="t90">90 Gün</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--text-muted);">Oranım (APR %)</label>
+          <input id="my-rate-input" type="number" step="0.01" min="0" max="20" placeholder="Örn: 3.25"
+            style="background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:13px;width:130px;outline:none;" />
+        </div>
+        <button id="my-rate-apply" onclick="applyMyRate()"
+          style="background:#58a6ff;color:#0d1117;border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;height:34px;">
+          Grafiğe Ekle
+        </button>
+        <button id="my-rate-clear" onclick="clearMyRate()" style="display:none;
+          background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;height:34px;">
+          Temizle
+        </button>
+      </div>
+      <!-- Karşılaştırma sonuç satırı -->
+      <div id="my-rate-result" style="display:none;margin-top:6px;padding:10px 14px;background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:12px;font-family:monospace;"></div>
+      <!-- Tenor grafiği (kendi çizgimle) -->
+      <div id="my-tenor-wrap" style="display:none;margin-top:14px;">
+        <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:6px;" id="my-tenor-label">Vadeli Borrow Rate — Günlük Snapshot</div>
+        <div class="legend" id="my-tenor-legend"></div>
+        <div class="chart-wrap" style="margin-top:8px;">
+          <div style="height:260px;position:relative"><canvas id="myTenorChart"></canvas></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="sec-spread" class="section">
@@ -749,6 +792,112 @@ function renderAnalysisSpread() {
 }
 
 function renderPricing() { renderAnalysis(); }
+
+// ===================== BENİM ORANIM =====================
+const MY_RATE_COLOR = '#C8D0DA';
+let myRateChart = null;
+const TENOR_LABELS = { t7:'7 Gün', t14:'14 Gün', t30:'30 Gün', t60:'60 Gün', t90:'90 Gün' };
+const TENOR_EXCH_KEYS = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*','KuCoin**'];
+
+function applyMyRate() {
+  const rateStr = document.getElementById('my-rate-input').value.trim();
+  const tk = document.getElementById('my-tenor-select').value;
+  const rate = parseFloat(rateStr);
+
+  if (isNaN(rate) || rate <= 0) {
+    document.getElementById('my-rate-input').style.borderColor = '#ff7b72';
+    setTimeout(() => { document.getElementById('my-rate-input').style.borderColor = 'var(--border)'; }, 1500);
+    return;
+  }
+
+  const d = TENOR_DATA[tk];
+  if (!d || !d.length) return;
+
+  // Tüm veriyi göster, 05.05.2026 sonrasını vurgula
+  const rows = d;
+  const labels = rows.map(r => r.date);
+  const START_IDX = rows.findIndex(r => r.date === '05.05.2026');
+
+  // Diğer borsa çizgileri
+  const datasets = TENOR_EXCH_KEYS.map(k => ({
+    label: k,
+    data: rows.map(r => r[k]),
+    borderColor: COLORS[k] || '#aaa',
+    borderWidth: 1.5,
+    pointRadius: 2,
+    tension: 0.3,
+    fill: false,
+    spanGaps: true
+  }));
+
+  // Kendi oranım — grafiğin başından sonuna sabit düz çizgi
+  datasets.push({
+    label: '⭐ Benim Oranım',
+    data: labels.map(() => rate),
+    borderColor: MY_RATE_COLOR,
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0,
+    fill: false,
+    spanGaps: true
+  });
+
+  // Legend
+  const legendEl = document.getElementById('my-tenor-legend');
+  legendEl.innerHTML = TENOR_EXCH_KEYS.map(k =>
+    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k}</span>`
+  ).join('') + `<span class="legend-item"><span class="legend-dot" style="background:${MY_RATE_COLOR};box-shadow:0 0 4px ${MY_RATE_COLOR}"></span><strong>Benim Oranım</strong></span>`;
+
+  document.getElementById('my-tenor-label').textContent =
+    `Vadeli Borrow Rate — ${TENOR_LABELS[tk]} — Günlük Snapshot (05.05.2026+)`;
+  document.getElementById('my-tenor-wrap').style.display = 'block';
+
+  if (myRateChart) myRateChart.destroy();
+  myRateChart = new Chart(document.getElementById('myTenorChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(2) + '%' : '—'}` }
+        }
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 12, maxRotation: 45, font: { size: 10 }, color: '#8b949e' }, grid: { display: false }, border: { color: 'rgba(255,255,255,0.08)' } },
+        y: { ticks: { callback: v => v.toFixed(1) + '%', font: { size: 10 }, color: '#8b949e' }, grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.08)' } }
+      }
+    }
+  });
+
+  // Karşılaştırma sonucu — son günün verileriyle karşılaştır
+  const lastRow = rows[rows.length - 1];
+  const comparisons = TENOR_EXCH_KEYS.map(k => {
+    const v = lastRow[k];
+    if (v == null) return null;
+    const diff = (rate - v).toFixed(2);
+    const sign = diff >= 0 ? '+' : '';
+    const color = diff >= 0 ? '#3fb950' : '#ff7b72';
+    return `<span style="margin-right:12px;color:${color}">${k}: <strong>${sign}${diff}%</strong></span>`;
+  }).filter(Boolean).join('');
+
+  const resultEl = document.getElementById('my-rate-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `<span style="color:${MY_RATE_COLOR};font-weight:600;margin-right:16px;">⭐ ${rate.toFixed(2)}% (${TENOR_LABELS[tk]})</span>` +
+    `<span style="color:var(--text-muted);margin-right:10px;">vs piyasa (${lastRow.date}):</span>` + comparisons;
+
+  document.getElementById('my-rate-clear').style.display = 'inline-block';
+}
+
+function clearMyRate() {
+  if (myRateChart) { myRateChart.destroy(); myRateChart = null; }
+  document.getElementById('my-tenor-wrap').style.display = 'none';
+  document.getElementById('my-rate-result').style.display = 'none';
+  document.getElementById('my-rate-clear').style.display = 'none';
+  document.getElementById('my-rate-input').value = '';
+}
 
 renderMargin();
 </script>
