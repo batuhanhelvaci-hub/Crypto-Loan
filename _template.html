@@ -73,6 +73,12 @@
   .info-box p { font-size: 13px; color: var(--info-text); line-height: 1.6; font-family: sans-serif; }
   .info-box strong { font-weight: 600; }
   .note { font-size: 11px; color: var(--text-muted); margin-top: 10px; font-family: monospace; }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; align-items: center; }
+  .filter-bar-label { font-size: 11px; color: var(--text-muted); font-family: monospace; margin-right: 4px; }
+  .filter-chip { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--surface2); cursor: pointer; user-select: none; font-size: 11px; font-family: monospace; color: var(--text-muted); transition: all 0.15s; }
+  .filter-chip input[type=checkbox] { display: none; }
+  .filter-chip.active { color: var(--text); border-color: var(--chip-color, #58a6ff); background: rgba(88,166,255,0.08); }
+  .filter-chip .chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color, #58a6ff); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -90,6 +96,7 @@
 
   <div id="sec-trend" class="section active">
     <div class="metrics" id="margin-metrics"></div>
+    <div class="filter-bar" id="margin-filter-bar"></div>
     <div class="ctrl-row">
       <span class="ctrl-label">Dönem:</span>
       <select id="margin-range" onchange="renderMargin()">
@@ -100,7 +107,6 @@
       </select>
       <span id="brush-info" style="display:none;margin-left:12px;font-size:11px;color:var(--text-muted);font-family:monospace"></span>
     </div>
-    <div class="legend" id="margin-legend"></div>
     <div class="chart-wrap">
       <div class="btc-label">▲ BTC Price (USD)</div>
       <div style="height:110px;position:relative"><canvas id="btcChart"></canvas></div>
@@ -123,17 +129,16 @@
 
   <div id="sec-loan" class="section">
     <div class="metrics" id="loan-metrics"></div>
+    <div class="filter-bar" id="loan-filter-bar"></div>
     <!-- İki küçük grafik yan yana -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
       <div>
-        <div class="legend" id="earn-legend"></div>
         <div class="chart-wrap">
           <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Earn Flexible Rate</div>
           <div style="height:200px;position:relative"><canvas id="earnChart"></canvas></div>
         </div>
       </div>
       <div>
-        <div class="legend" id="loan-legend"></div>
         <div class="chart-wrap">
           <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Loan Flexible Rate</div>
           <div style="height:200px;position:relative"><canvas id="loanChart"></canvas></div>
@@ -153,7 +158,7 @@
         <option value="t180">180 Gün</option>
       </select>
     </div>
-    <div class="legend" id="tenor-legend"></div>
+    <div class="filter-bar" id="tenor-filter-bar"></div>
     <div class="chart-wrap">
       <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Vadeli Borrow Rate — Günlük Snapshot</div>
       <div style="height:280px;position:relative"><canvas id="tenorChart"></canvas></div>
@@ -196,7 +201,7 @@
       <!-- Tenor grafiği (kendi çizgimle) -->
       <div id="my-tenor-wrap" style="display:none;margin-top:14px;">
         <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:6px;" id="my-tenor-label">Vadeli Borrow Rate — Günlük Snapshot</div>
-        <div class="legend" id="my-tenor-legend"></div>
+        <div class="filter-bar" id="my-tenor-filter-bar"></div>
         <div class="chart-wrap" style="margin-top:8px;">
           <div style="height:260px;position:relative"><canvas id="myTenorChart"></canvas></div>
         </div>
@@ -205,7 +210,7 @@
   </div>
 
   <div id="sec-spread" class="section">
-    <div class="legend" id="spread-legend"></div>
+    <div class="filter-bar" id="spread-filter-bar"></div>
     <div class="chart-wrap"><div style="height:320px;position:relative"><canvas id="spreadChart"></canvas></div></div>
     <p class="note">* Spread = Crypto Loan Flexible Rate − Earn Flexible Rate (APR)</p>
   </div>
@@ -221,9 +226,9 @@
     </div>
     <!-- Margin analizi -->
     <div id="analysis-margin" class="analysis-panel">
+      <div class="filter-bar" id="analysis-margin-filter-bar"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <div class="legend" id="am-legend"></div>
           <div class="chart-wrap">
             <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Tarihsel Ortalama Borrow Rate (%)</div>
             <div style="height:260px;position:relative"><canvas id="amChart"></canvas></div>
@@ -251,7 +256,6 @@
           <option value="t180">180 Gün</option>
         </select>
       </div>
-      <div class="legend" id="al-legend"></div>
       <div class="chart-wrap">
         <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Piyasa Min / Medyan / Max — Vadeye Göre</div>
         <div style="height:300px;position:relative"><canvas id="alChart"></canvas></div>
@@ -259,7 +263,6 @@
     </div>
     <!-- Spread analizi -->
     <div id="analysis-spread" class="analysis-panel" style="display:none">
-      <div class="legend" id="as-legend"></div>
       <div class="chart-wrap">
         <div style="font-size:10px;color:var(--text-muted);font-family:monospace;margin-bottom:6px">Spread vs BTC Fiyatı — Çift Eksen</div>
         <div style="height:300px;position:relative"><canvas id="asChart"></canvas></div>
@@ -283,6 +286,39 @@ const COLORS = {
 };
 let charts = {};
 
+// ===== EXCHANGE FILTER STATE =====
+const MARGIN_EXCHANGES = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
+const LOAN_EXCHANGES   = ['Binance','OKX','ByBit','Gate_IO'];
+const TENOR_EXCHANGES  = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*','KuCoin**'];
+
+const filterState = {
+  margin: new Set(MARGIN_EXCHANGES),
+  loan:   new Set(LOAN_EXCHANGES),
+  tenor:  new Set(TENOR_EXCHANGES),
+  spread: new Set(TENOR_EXCHANGES),
+  analysisMargin: new Set(MARGIN_EXCHANGES),
+};
+
+function buildFilterBar(containerId, exchanges, stateKey, colorMap, onChange) {
+  const bar = document.getElementById(containerId);
+  if (!bar) return;
+  bar.innerHTML = '<span class="filter-bar-label">Borsalar:</span>';
+  exchanges.forEach(ex => {
+    const color = colorMap[ex] || '#aaa';
+    const chip = document.createElement('label');
+    chip.className = 'filter-chip active';
+    chip.style.setProperty('--chip-color', color);
+    chip.innerHTML = `<input type="checkbox" checked /><span class="chip-dot"></span>${ex}`;
+    chip.querySelector('input').addEventListener('change', function() {
+      chip.classList.toggle('active', this.checked);
+      if (this.checked) filterState[stateKey].add(ex);
+      else filterState[stateKey].delete(ex);
+      onChange();
+    });
+    bar.appendChild(chip);
+  });
+}
+
 function showTab(id) {
   document.querySelectorAll('.tab').forEach((t,i) => {
     const ids=['trend','loan','spread','pricing'];
@@ -290,9 +326,19 @@ function showTab(id) {
   });
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('sec-'+id).classList.add('active');
-  if(id==='trend' && !charts.margin) renderMargin();
-  if(id==='loan'  && !charts.loan)   renderLoan();
-  if(id==='spread'&& !charts.spread) initSpread();
+  if(id==='trend' && !charts.margin) {
+    buildFilterBar('margin-filter-bar', MARGIN_EXCHANGES, 'margin', COLORS, renderMargin);
+    renderMargin();
+  }
+  if(id==='loan' && !charts.loan) {
+    buildFilterBar('loan-filter-bar', LOAN_EXCHANGES, 'loan', COLORS, renderLoan);
+    buildFilterBar('tenor-filter-bar', TENOR_EXCHANGES, 'tenor', COLORS, renderTenor);
+    renderLoan();
+  }
+  if(id==='spread' && !charts.spread) {
+    buildFilterBar('spread-filter-bar', TENOR_EXCHANGES, 'spread', COLORS, initSpread);
+    initSpread();
+  }
   if(id==='pricing') renderPricing();
 }
 
@@ -329,8 +375,11 @@ function renderMargin() {
   }
 
   const labels = d.map(r => r.date.slice(5));
-  const keys  = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
-  const names = ['Binance','OKX','Bybit','KuCoin','Gate.IO'];
+  const allKeys  = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
+  const allNames = ['Binance','OKX','Bybit','KuCoin','Gate.IO'];
+  const activeIdxs = allKeys.map((k,i) => filterState.margin.has(k) ? i : -1).filter(i => i >= 0);
+  const keys  = activeIdxs.map(i => allKeys[i]);
+  const names = activeIdxs.map(i => allNames[i]);
 
   // Metricler — seçili aralığın başlangıcı ile bitişi arasındaki değişim
   // "Tümü": ilk gün → son gün
@@ -343,10 +392,6 @@ function renderMargin() {
     const cls   = parseFloat(chg) >= 0 ? 'pos' : 'neg';
     return `<div class="metric"><div class="metric-label">${names[i]}</div><div class="metric-value" style="color:${COLORS[k]}">${cur!=null?cur.toFixed(2):'—'}%</div><div class="metric-sub ${cls}">${chg>=0?'+':''}${chg}%</div></div>`;
   }).join('');
-
-  document.getElementById('margin-legend').innerHTML = keys.map((k,i) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]}"></span>${names[i]}</span>`
-  ).join('') + '<span class="legend-item"><span class="legend-dot" style="background:rgba(255,255,255,0.7)"></span>Average</span>';
 
   // BTC grafiği — aynı tarih aralığı (date eşleştirme ile)
   const dStartDate = d[0].date;
@@ -528,8 +573,11 @@ initBrushInteraction();
 function renderLoan() {
   const d = DATA.loan;
   const labels = d.map(r => r.date.slice(5));
-  const keys  = ['Binance','OKX','ByBit','Gate_IO'];
-  const names = ['Binance','OKX','ByBit','Gate.IO'];
+  const allKeys  = ['Binance','OKX','ByBit','Gate_IO'];
+  const allNames = ['Binance','OKX','ByBit','Gate.IO'];
+  const activeIdxs = allKeys.map((k,i) => filterState.loan.has(k) ? i : -1).filter(i => i >= 0);
+  const keys  = activeIdxs.map(i => allKeys[i]);
+  const names = activeIdxs.map(i => allNames[i]);
 
   document.getElementById('loan-metrics').innerHTML = keys.map((k,i) => {
     const cur=d[d.length-1][k]; const start=d[0][k];
@@ -538,9 +586,6 @@ function renderLoan() {
     return `<div class="metric"><div class="metric-label">${names[i]} Loan Flex</div><div class="metric-value" style="color:${COLORS[k]||'#888'}">${cur!=null?cur.toFixed(2):'—'}%</div><div class="metric-sub ${cls}">${chg>=0?'+':''}${chg}%</div></div>`;
   }).join('');
 
-  document.getElementById('loan-legend').innerHTML = keys.map((k,i) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#888'}"></span>${names[i]}</span>`
-  ).join('');
 
   const loanDatasets = keys.map((k,i) => ({
     label:names[i], data:d.map(r=>r[k]), borderColor:COLORS[k]||'#888', borderWidth:1.8, pointRadius:0, tension:0.3, fill:false, spanGaps:true
@@ -557,9 +602,6 @@ function renderLoan() {
   // Earn Flexible grafiği
   const e = DATA.earn;
   const elabels = e.map(r => r.date.slice(5));
-  document.getElementById('earn-legend').innerHTML = keys.map((k,i) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#888'}"></span>${names[i]}</span>`
-  ).join('');
   const earnDatasets = keys.map((k,i) => ({
     label:names[i], data:e.map(r=>r[k]), borderColor:COLORS[k]||'#888', borderWidth:1.8, pointRadius:0, tension:0.3, fill:false, spanGaps:true
   }));
@@ -585,11 +627,8 @@ function renderTenor() {
   const d  = TENOR_DATA[tk];
   if(!d || !d.length) return;
   const labels = d.map(r => r.date);
-  const exchKeys  = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*','KuCoin**'];
+  const exchKeys = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*','KuCoin**'].filter(k => filterState.tenor.has(k));
 
-  document.getElementById('tenor-legend').innerHTML = exchKeys.map(k =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k}</span>`
-  ).join('');
 
   const datasets = exchKeys.map(k => ({
     label:k, data:d.map(r=>r[k]), borderColor:COLORS[k]||'#aaa', borderWidth:1.8, pointRadius:3, tension:0.3, fill:false, spanGaps:true
@@ -611,11 +650,8 @@ function initSpread() {
 
 function renderSpread() {
   const dates = Object.keys(TERM_ALL);
-  const exchKeys = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*'];
+  const exchKeys = ['ByBit','OKX','Gate I.O','XT','Bitget','Binance*'].filter(k => filterState.spread.has(k));
 
-  document.getElementById('spread-legend').innerHTML = exchKeys.map(k =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k}</span>`
-  ).join('');
 
   const datasets = exchKeys.map(k => ({
     label: k,
@@ -651,7 +687,12 @@ function renderAnalysis() {
   const val = document.getElementById('analysis-select').value;
   document.querySelectorAll('.analysis-panel').forEach(p => p.style.display = 'none');
   document.getElementById('analysis-' + val).style.display = 'block';
-  if (val === 'margin')  renderAnalysisMargin();
+  if (val === 'margin') {
+    if (!document.getElementById('analysis-margin-filter-bar').children.length) {
+      buildFilterBar('analysis-margin-filter-bar', MARGIN_EXCHANGES, 'analysisMargin', COLORS, renderAnalysisMargin);
+    }
+    renderAnalysisMargin();
+  }
   if (val === 'loan')    renderAnalysisLoan();
   if (val === 'spread')  renderAnalysisSpread();
 }
@@ -660,12 +701,12 @@ function renderAnalysisMargin() {
   const d    = DATA.margin;
   const btcd = DATA.btc;
   const labels = d.map(r => r.date.slice(5));
-  const keys   = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
-  const names  = ['Binance','OKX','Bybit','KuCoin','Gate.IO'];
+  const allKeys  = ['Binance','OKX','Bybit','KuCoin','Gate_IO'];
+  const allNames = ['Binance','OKX','Bybit','KuCoin','Gate.IO'];
+  const activeIdxs = allKeys.map((k,i) => filterState.analysisMargin.has(k) ? i : -1).filter(i => i >= 0);
+  const keys  = activeIdxs.map(i => allKeys[i]);
+  const names = activeIdxs.map(i => allNames[i]);
 
-  document.getElementById('am-legend').innerHTML = keys.map((k,i) =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]}"></span>${names[i]}</span>`
-  ).join('');
 
   const datasets = keys.map((k,i) => ({
     label: names[i], data: d.map(r => r[k]),
@@ -712,9 +753,6 @@ function renderAnalysisLoan() {
     maxLabels.push(vals[vals.length-1].k);
   });
 
-  document.getElementById('al-legend').innerHTML =
-    '<span class="legend-item"><span class="legend-dot" style="background:#56d364"></span>Min</span>' +
-    '<span class="legend-item"><span class="legend-dot" style="background:rgba(255,255,255,0.5)"></span>Medyan</span>' +
     '<span class="legend-item"><span class="legend-dot" style="background:#e3b341"></span>Max</span>';
 
   if (charts.alChart) charts.alChart.destroy();
@@ -763,9 +801,6 @@ function renderAnalysisSpread() {
     return iso ? (btcMap[iso] || null) : null;
   });
 
-  document.getElementById('as-legend').innerHTML =
-    exchKeys.map(k => `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k} spread</span>`).join('') +
-    '<span class="legend-item"><span class="legend-dot" style="background:#F7931A"></span>BTC (sağ eksen)</span>';
 
   const spreadDatasets = exchKeys.map(k => ({
     label: k + ' spread',
@@ -818,8 +853,8 @@ function applyMyRate() {
   const labels = rows.map(r => r.date);
   const START_IDX = rows.findIndex(r => r.date === '05.05.2026');
 
-  // Diğer borsa çizgileri
-  const datasets = TENOR_EXCH_KEYS.map(k => ({
+  // Diğer borsa çizgileri — sadece seçili olanlar
+  const datasets = TENOR_EXCH_KEYS.filter(k => filterState.tenor.has(k)).map(k => ({
     label: k,
     data: rows.map(r => r[k]),
     borderColor: COLORS[k] || '#aaa',
@@ -842,11 +877,17 @@ function applyMyRate() {
     spanGaps: true
   });
 
-  // Legend
-  const legendEl = document.getElementById('my-tenor-legend');
-  legendEl.innerHTML = TENOR_EXCH_KEYS.map(k =>
-    `<span class="legend-item"><span class="legend-dot" style="background:${COLORS[k]||'#aaa'}"></span>${k}</span>`
-  ).join('') + `<span class="legend-item"><span class="legend-dot" style="background:${MY_RATE_COLOR};box-shadow:0 0 4px ${MY_RATE_COLOR}"></span><strong>Benim Oranım</strong></span>`;
+  // Filter bar - ilk açılışta oluştur, sonraki çağrılarda güncelleme
+  const myFilterBar = document.getElementById('my-tenor-filter-bar');
+  if (!myFilterBar.children.length) {
+    buildFilterBar('my-tenor-filter-bar', TENOR_EXCH_KEYS, 'tenor', COLORS, applyMyRate);
+    // "Benim Oranım" chip ekle (sadece gösterim, kaldırılamaz)
+    const myChip = document.createElement('span');
+    myChip.className = 'filter-chip active';
+    myChip.style.setProperty('--chip-color', MY_RATE_COLOR);
+    myChip.innerHTML = `<span class="chip-dot"></span><strong>Benim Oranım</strong>`;
+    myFilterBar.appendChild(myChip);
+  }
 
   document.getElementById('my-tenor-label').textContent =
     `Vadeli Borrow Rate — ${TENOR_LABELS[tk]} — Günlük Snapshot (05.05.2026+)`;
@@ -899,6 +940,7 @@ function clearMyRate() {
   document.getElementById('my-rate-input').value = '';
 }
 
+buildFilterBar('margin-filter-bar', MARGIN_EXCHANGES, 'margin', COLORS, renderMargin);
 renderMargin();
 </script>
 </body>
